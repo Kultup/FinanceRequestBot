@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Telegram Bot Documentation
 
 ## Overview
@@ -36,3 +37,27 @@ To set up the bot:
    ```bash
    pip install -r requirements.txt
    ```
+=======
+# Finance Request Bot
+
+Этот проект представляет собой Telegram-бота для управления финансовыми запросами. Бот позволяет пользователям регистрироваться, отправлять финансовые запросы и получать статистику. Администраторы могут управлять запросами, экспортировать данные и видеть статистику.
+
+## Репозиторий
+
+Репозиторий доступен по ссылке: [FinanceRequestBot на GitHub](https://github.com/Kultup/FinanceRequestBot.git).
+
+## Файлы проекта
+
+- **`bot.py`** — Основной скрипт Telegram-бота.
+- **`config.py`** — Конфигурационный файл с настройками бота.
+- **`database.py`** — Модуль для работы с базой данных.
+- **`requirements.txt`** — Список зависимостей, необходимых для запуска проекта.
+
+## Установка
+
+1. **Клонируйте репозиторий**:
+   
+   ```bash
+   git clone https://github.com/Kultup/FinanceRequestBot.git
+   cd FinanceRequestBot
+>>>>>>> b6d70a98f182b0d3ea1844febea1eb2a593be8d9
