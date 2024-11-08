@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from openpyxl.utils.dataframe import dataframe_to_rows  
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Подключение к базе данных
 conn = sqlite3.connect('users.db', check_same_thread=False)
@@ -19,7 +19,6 @@ def create_tables():
     cursor.execute('''CREATE TABLE IF NOT EXISTS requests (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER,
-                        currency TEXT,
                         amount INTEGER,
                         comment TEXT,
                         file_path TEXT,
@@ -41,17 +40,20 @@ def add_user(user_id, name, phone, city):
     conn.commit()
 
 # Функция для добавления запроса
-def add_request(user_id, currency, amount, comment=None, file_path=None):
+def add_request(user_id, amount, comment=None, file_path=None):
     request_number = get_next_request_number(user_id)
-    cursor.execute("INSERT INTO requests (user_id, currency, amount, comment, file_path, request_number) VALUES (?, ?, ?, ?, ?, ?)", 
-                   (user_id, currency, amount, comment, file_path, request_number))
+    cursor.execute("INSERT INTO requests (user_id, amount, comment, file_path, request_number) VALUES (?, ?, ?, ?, ?)", 
+                   (user_id, amount, comment, file_path, request_number))
     conn.commit()
     request_id = cursor.lastrowid
     return request_id, request_number
 
 # Функция для обновления статуса запроса
-def update_request_status(request_id, status):
-    cursor.execute("UPDATE requests SET status = ? WHERE id = ?", (status, request_id))
+def update_request_status(request_id, status, comment=None):
+    if comment:
+        cursor.execute("UPDATE requests SET status = ?, comment = ? WHERE id = ?", (status, comment, request_id))
+    else:
+        cursor.execute("UPDATE requests SET status = ? WHERE id = ?", (status, request_id))
     conn.commit()
 
 # Функция для получения информации о запросе
@@ -62,28 +64,26 @@ def get_request_info(request_id):
         return {
             'id': result[0],
             'user_id': result[1],
-            'currency': result[2],
-            'amount': result[3],
-            'comment': result[4],
-            'file_path': result[5],
-            'status': result[6],
-            'request_number': result[7],
-            'created_at': result[8],
-            'name': result[9]
+            'amount': result[2],
+            'comment': result[3],
+            'file_path': result[4],
+            'status': result[5],
+            'request_number': result[6],
+            'created_at': result[7],
+            'name': result[8]
         }
     return None
 
 # Функция для получения активных запросов пользователя
 def get_active_requests(user_id):
-    cursor.execute("SELECT request_number, currency, amount, status FROM requests WHERE user_id = ? AND status = 'В обробці'", (user_id,))
+    cursor.execute("SELECT request_number, amount, status FROM requests WHERE user_id = ? AND status = 'В обробці'", (user_id,))
     rows = cursor.fetchall()
     requests = []
     for row in rows:
         requests.append({
             'request_number': row[0],
-            'currency': row[1],
-            'amount': row[2],
-            'status': row[3]
+            'amount': row[1],
+            'status': row[2]
         })
     return requests
 
@@ -103,7 +103,7 @@ def get_next_request_number(user_id):
 
 # Функция для получения всех активных запросов в системе
 def get_all_active_requests():
-    cursor.execute("SELECT request_number, name, phone, amount, currency, comment, file_path, status, created_at FROM requests JOIN users ON requests.user_id = users.user_id WHERE status = 'В обробці'")
+    cursor.execute("SELECT request_number, name, phone, amount, comment, file_path, status, created_at FROM requests JOIN users ON requests.user_id = users.user_id WHERE status = 'В обробці'")
     rows = cursor.fetchall()
     active_requests = []
     for row in rows:
@@ -112,11 +112,10 @@ def get_all_active_requests():
             'name': row[1],
             'phone': row[2],
             'amount': row[3],
-            'currency': row[4],
-            'comment': row[5],
-            'file_path': row[6],
-            'status': row[7],
-            'created_at': row[8]
+            'comment': row[4],
+            'file_path': row[5],
+            'status': row[6],
+            'created_at': row[7]
         })
     return active_requests
 
@@ -136,26 +135,12 @@ def get_total_amount():
     result = cursor.fetchone()
     return result[0] if result[0] else 0
 
-# Функция для получения суммы запросов по каждой валюте
-def get_total_amount_by_currency():
-    cursor.execute("SELECT currency, SUM(amount) FROM requests GROUP BY currency")
-    results = cursor.fetchall()
-    
-    amount_by_currency = {}
-    for row in results:
-        currency = row[0]
-        total_amount = row[1] if row[1] else 0
-        amount_by_currency[currency] = total_amount
-    
-    return amount_by_currency
-
 # Функция для экспорта запросов в Excel с именами пользователей и датой создания
 def export_requests_to_excel():
     cursor.execute('''SELECT 
             requests.id,
             users.name,
             users.phone,
-            requests.currency,
             requests.amount,
             requests.comment,
             requests.file_path,
@@ -170,7 +155,7 @@ def export_requests_to_excel():
     rows = cursor.fetchall()
     
     # Определение названий столбцов
-    columns = ['id', 'Имя', 'Телефон', 'Валюта', 'Сумма', 'Комментарий', 'Файл', 'Статус', 'Номер запроса', 'Дата создания']  
+    columns = ['id', 'Имя', 'Телефон', 'Сумма', 'Комментарий', 'Файл', 'Статус', 'Номер запроса', 'Дата создания']  
     
     # Создание DataFrame
     df = pd.DataFrame(rows, columns=columns)
@@ -205,23 +190,6 @@ def export_requests_to_excel():
     workbook.save(file_path)
 
     return file_path
-
-# Функция для получения данных по отменённым запросам (количество и сумма по валютам)
-def get_canceled_requests():
-    cursor.execute("SELECT COUNT(*), SUM(amount), currency FROM requests WHERE status = 'Скасовано' GROUP BY currency")
-    results = cursor.fetchall()
-    
-    if not results:
-        return {}
-
-    canceled_data = {}
-    for row in results:
-        count = row[0]
-        total_amount = row[1] if row[1] else 0
-        currency = row[2]
-        canceled_data[currency] = {'count': count, 'total_amount': total_amount}
-    
-    return canceled_data
 
 # Функция для получения количества отклоненных запросов
 def get_rejected_requests():
